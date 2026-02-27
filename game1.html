@@ -1,0 +1,264 @@
+<!DOCTYPE html>
+<html lang="ko">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width,initial-scale=1">
+
+<title>Aim Trainer PRO</title>
+
+<style>
+body{
+margin:0;
+background:#0b0f14;
+color:white;
+font-family:Arial;
+overflow:hidden;
+touch-action:none;
+}
+
+/* SCREEN */
+.screen{
+position:absolute;
+width:100%;
+height:100%;
+display:flex;
+flex-direction:column;
+justify-content:center;
+align-items:center;
+background:#0b0f14;
+}
+
+button{
+padding:15px 45px;
+margin:10px;
+font-size:20px;
+border:none;
+border-radius:8px;
+background:#1f2a38;
+color:white;
+cursor:pointer;
+}
+
+/* GRID */
+#grid{
+display:grid;
+grid-template-columns:repeat(5,1fr);
+grid-template-rows:repeat(5,1fr);
+width:100vw;
+height:100vh;
+}
+
+.cell{
+display:flex;
+justify-content:center;
+align-items:center;
+}
+
+/* ✅ SMALL TARGET */
+.target{
+width:40px;
+height:40px;
+border-radius:50%;
+transition:.08s;
+}
+
+.red{background:#ff3b3b;}
+.blue{background:#2aa9ff;}
+
+.hit{
+transform:scale(1.6);
+opacity:0;
+}
+
+/* HUD */
+#hud{
+position:absolute;
+top:10px;
+left:15px;
+font-size:18px;
+}
+</style>
+</head>
+
+<body>
+
+<!-- MENU -->
+<div id="menu" class="screen">
+<h1>AIM TRAINER</h1>
+<button onclick="openDifficulty()">GRIDSHOT</button>
+</div>
+
+<!-- DIFFICULTY -->
+<div id="difficulty" class="screen" style="display:none">
+<h2>Select Difficulty</h2>
+<button onclick="startGame('easy')">EASY</button>
+<button onclick="startGame('normal')">NORMAL</button>
+<button onclick="startGame('hard')">HARD</button>
+</div>
+
+<div id="grid"></div>
+
+<div id="hud">
+Score: <span id="score">0</span><br>
+Best: <span id="best">0</span><br>
+Accuracy: <span id="acc">100</span>%<br>
+Time: <span id="time">0</span>
+</div>
+
+<div id="result" class="screen" style="display:none"></div>
+
+<script>
+const menu=document.getElementById("menu");
+const difficulty=document.getElementById("difficulty");
+const result=document.getElementById("result");
+
+const grid=document.getElementById("grid");
+const scoreUI=document.getElementById("score");
+const accUI=document.getElementById("acc");
+const bestUI=document.getElementById("best");
+const timeUI=document.getElementById("time");
+
+let best=localStorage.getItem("aim_best")||0;
+bestUI.innerText=best;
+
+/* GRID */
+for(let i=0;i<25;i++){
+let c=document.createElement("div");
+c.className="cell";
+grid.appendChild(c);
+}
+
+let playing=false;
+let score=0,hits=0,shots=0;
+let spawnCount,blueChance,time;
+
+/* MENU */
+function openDifficulty(){
+menu.style.display="none";
+difficulty.style.display="flex";
+}
+
+/* START */
+function startGame(level){
+
+difficulty.style.display="none";
+playing=true;
+
+score=0;
+hits=0;
+shots=0;
+
+if(level==="easy"){
+spawnCount=2; blueChance=.3; time=40;
+}
+if(level==="normal"){
+spawnCount=3; blueChance=.2; time=30;
+}
+if(level==="hard"){
+spawnCount=5; blueChance=.15; time=20;
+}
+
+timeUI.innerText=time;
+spawnTargets();
+timer();
+}
+
+/* TARGET */
+function spawnTargets(){
+
+clearTargets();
+let cells=document.querySelectorAll(".cell");
+
+for(let i=0;i<spawnCount;i++){
+
+let t=document.createElement("div");
+t.classList.add("target");
+
+if(Math.random()<blueChance){
+t.classList.add("blue");
+t.dataset.score=300;
+}else{
+t.classList.add("red");
+t.dataset.score=100;
+}
+
+t.onclick=hit;
+cells[Math.floor(Math.random()*25)].appendChild(t);
+}
+}
+
+function clearTargets(){
+document.querySelectorAll(".target")
+.forEach(t=>t.remove());
+}
+
+/* HIT */
+function hit(e){
+if(!playing)return;
+e.stopPropagation();
+
+score+=Number(this.dataset.score);
+hits++; shots++;
+
+this.classList.add("hit");
+
+setTimeout(spawnTargets,70);
+updateUI();
+}
+
+/* MISS */
+document.body.addEventListener("click",e=>{
+if(!playing)return;
+if(!e.target.classList.contains("target")){
+shots++;
+updateUI();
+}
+});
+
+/* UI */
+function updateUI(){
+scoreUI.innerText=score;
+accUI.innerText=((hits/shots)*100||100).toFixed(1);
+}
+
+/* TIMER */
+function timer(){
+let t=setInterval(()=>{
+time--;
+timeUI.innerText=time;
+
+if(time<=0){
+clearInterval(t);
+endGame();
+}
+},1000);
+}
+
+/* END */
+function endGame(){
+playing=false;
+clearTargets();
+
+if(score>best){
+best=score;
+localStorage.setItem("aim_best",best);
+}
+
+result.style.display="flex";
+result.innerHTML=
+`RESULT<br>
+Score ${score}<br>
+Best ${best}<br>
+Accuracy ${((hits/shots)*100||0).toFixed(1)}%
+<br><br>
+<button onclick="location.reload()">PLAY AGAIN</button>`;
+}
+</script>
+
+</body>
+</html>
+Game Layer
+↑
+HUD Layer (pointer-events:none)
+↑
+Effect Layer
