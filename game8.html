@@ -1,0 +1,220 @@
+<!DOCTYPE html>
+<html lang="ko">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>LAST BALLOON</title>
+<style>
+body{margin:0;overflow:hidden;background:#87CEEB;touch-action:none;}
+canvas{display:block;}
+</style>
+</head>
+<body>
+
+<canvas id="gameCanvas"></canvas>
+
+<audio id="bgm" src="music.mp3" loop preload="auto"></audio>
+<audio id="popSound" src="pop.mp3" preload="auto"></audio>
+<audio id="laughSound" src="laugh.mp3" preload="auto"></audio>
+
+<script>
+const canvas = document.getElementById("gameCanvas");
+const ctx = canvas.getContext("2d");
+
+const bgm = document.getElementById("bgm");
+const popSound = document.getElementById("popSound");
+const laughSound = document.getElementById("laughSound");
+
+let audioUnlocked = false;
+
+function unlockAudio(){
+    if(!audioUnlocked){
+        bgm.play().then(()=>bgm.pause());
+        audioUnlocked = true;
+    }
+}
+
+function resize(){
+    canvas.width = window.innerWidth;
+    canvas.height = window.innerHeight;
+}
+resize();
+window.addEventListener("resize", resize);
+
+let score = 0;
+let redCombo = 0;
+let gameState = "play";
+let balloons = [];
+let darkness = 0;
+let shakeTime = 0;
+
+const WAVE_COUNT = 6;
+
+// 🎈 풍선 속도 ↑ (기존보다 빠르게)
+const BASE_SPEED = 4;  
+
+// 🖼 엔딩 이미지
+const endingBad = new Image();
+const endingMiddle = new Image();
+const endingGood = new Image();
+
+endingBad.src = "ending_bad.jpg";
+endingMiddle.src = "ending_middle.jpg";
+endingGood.src = "ending_good.jpg";
+
+function getEndingImage(){
+    if(score < 20) return endingBad;
+    if(score < 50) return endingMiddle;
+    return endingGood;
+}
+
+function startWave(){
+    balloons = [];
+    for(let i=0;i<WAVE_COUNT;i++){
+        createBalloon();
+    }
+}
+
+function createBalloon(){
+    const types = ["red","blue","yellow"];
+    let chosen = types[Math.floor(Math.random()*3)];
+
+    balloons.push({
+        x: Math.random()*(canvas.width-60)+30,
+        y: canvas.height + Math.random()*200,
+        radius:30,
+        speed:BASE_SPEED + Math.random()*2, // 🔥 더 빠르게
+        type:chosen
+    });
+}
+
+canvas.addEventListener("touchstart", e=>{
+
+    unlockAudio();
+    bgm.play().catch(()=>{});
+
+    if(gameState==="ending") return;
+
+    const tx = e.touches[0].clientX;
+    const ty = e.touches[0].clientY;
+
+    for(let i=balloons.length-1;i>=0;i--){
+        let b = balloons[i];
+        let dx = tx - b.x;
+        let dy = ty - b.y;
+        let distance = Math.sqrt(dx*dx + dy*dy);
+
+        if(distance < b.radius){
+
+            popSound.currentTime = 0;
+            popSound.play().catch(()=>{});
+
+            shakeTime = 12; // 💥 흔들림 강화
+
+            if(b.type==="red"){
+                score+=5;
+                redCombo++;
+                if(redCombo===5){
+                    score+=50;
+                    redCombo=0;
+                }
+            }
+            else if(b.type==="blue"){
+                score-=3;
+                redCombo=0;
+            }
+            else{
+                score+=2;
+                redCombo=0;
+            }
+
+            balloons.splice(i,1);
+            break;
+        }
+    }
+
+    // 🎬 전부 터뜨리면 엔딩 사진 출력
+    if(balloons.length === 0){
+        gameState = "ending";
+        bgm.pause();
+        laughSound.play().catch(()=>{});
+    }
+});
+
+function drawBalloon(b){
+    ctx.beginPath();
+    ctx.arc(b.x,b.y,b.radius,0,Math.PI*2);
+
+    if(b.type==="red") ctx.fillStyle="red";
+    if(b.type==="blue") ctx.fillStyle="blue";
+    if(b.type==="yellow") ctx.fillStyle="yellow";
+
+    ctx.fill();
+
+    ctx.beginPath();
+    ctx.moveTo(b.x,b.y+b.radius);
+    ctx.lineTo(b.x,b.y+b.radius+20);
+    ctx.stroke();
+}
+
+function updateBalloons(){
+    for(let b of balloons){
+        b.y -= b.speed;
+    }
+
+    darkness += 0.001;  // 🌑 점점 어두워짐
+    if(darkness > 0.7) darkness = 0.7;
+
+    if(balloons.length>0 && balloons.every(b=>b.y < -50)){
+        setTimeout(()=>{ startWave(); },1000);
+    }
+}
+
+function drawUI(){
+    ctx.fillStyle="black";
+    ctx.font="22px Arial";
+    ctx.fillText("SCORE: "+score,20,40);
+}
+
+function drawDarkness(){
+    ctx.fillStyle = "rgba(0,0,0,"+darkness+")";
+    ctx.fillRect(0,0,canvas.width,canvas.height);
+}
+
+function drawEnding(){
+    const img = getEndingImage();
+    ctx.drawImage(img,0,0,canvas.width,canvas.height);
+}
+
+function gameLoop(){
+
+    ctx.save();
+
+    if(shakeTime > 0){
+        let dx = (Math.random()-0.5)*25;
+        let dy = (Math.random()-0.5)*25;
+        ctx.translate(dx,dy);
+        shakeTime--;
+    }
+
+    ctx.clearRect(-50,-50,canvas.width+100,canvas.height+100);
+
+    if(gameState==="play"){
+        updateBalloons();
+        balloons.forEach(drawBalloon);
+        drawUI();
+        drawDarkness();
+        requestAnimationFrame(gameLoop);
+    } 
+    else{
+        drawEnding();
+    }
+
+    ctx.restore();
+}
+
+startWave();
+gameLoop();
+</script>
+</body>
+</html>
