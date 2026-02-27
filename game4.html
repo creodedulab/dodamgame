@@ -1,0 +1,253 @@
+<!DOCTYPE html>
+<html lang="ko">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>인생은 운빨이다 - Dialogue Edition</title>
+
+<style>
+body{
+    margin:0;
+    background:#111;
+    color:white;
+    text-align:center;
+    font-family:Arial;
+}
+
+h1{color:gold;}
+
+#gameArea{
+    position:relative;
+    width:100%;
+    height:300px;
+    overflow:hidden;
+
+    /* 🌄 맵 배경 이미지 */
+    background-image:url("https://picsum.photos/800/300");
+    background-size:cover;
+    background-position:center;
+}
+
+#player{
+    position:absolute;
+    bottom:20px;
+    left:50px;
+    font-size:40px;
+}
+
+.npc{
+    position:absolute;
+    bottom:20px;
+    font-size:40px;
+}
+
+#dialogueBox{
+    position:fixed;
+    bottom:0;
+    width:100%;
+    background:rgba(0,0,0,0.8);
+    padding:15px;
+    display:none;
+}
+
+.choiceBtn{
+    display:block;
+    margin:6px auto;
+    padding:8px;
+    width:80%;
+    border:none;
+    border-radius:6px;
+}
+
+.controlBtn{
+    padding:10px 15px;
+    margin:4px;
+    border:none;
+    border-radius:6px;
+    background:#444;
+    color:white;
+}
+</style>
+</head>
+<body>
+
+<h1>🎲 인생은 운빨이다</h1>
+
+<div id="gameArea">
+    <div id="player">👨</div>
+</div>
+
+<div>
+    <button class="controlBtn" id="leftBtn">⬅️</button>
+    <button class="controlBtn" id="jumpBtn">⬆️</button>
+    <button class="controlBtn" id="rightBtn">➡️</button>
+    <button class="controlBtn" id="skillBtn">⚡스킬</button>
+</div>
+
+<p>
+❤️ HP: <span id="hp">100</span>
+💰 <span id="money">50</span>
+⭐ <span id="fame">50</span>
+</p>
+
+<!-- 💬 대화창 -->
+<div id="dialogueBox">
+    <p id="dialogueText"></p>
+    <div id="choices"></div>
+</div>
+
+<script>
+let hp=100,money=50,fame=50;
+let playerX=50,velocityY=0;
+let isJumping=false;
+let moveLeft=false,moveRight=false;
+
+let npcs=[];
+let invincible=false,skillCooldown=false;
+
+const player=document.getElementById("player");
+const gameArea=document.getElementById("gameArea");
+const dialogueBox=document.getElementById("dialogueBox");
+
+const npcTypes=[
+{
+emoji:"👽",
+dialogue:"외계인이 스카우트 제안!",
+choices:[
+{text:"수락",effect:()=>money+=20},
+{text:"거절",effect:()=>hp-=10}
+]
+},
+{
+emoji:"🎁",
+dialogue:"선물을 발견했다!",
+choices:[
+{text:"연다",effect:()=>hp+=15},
+{text:"버린다",effect:()=>fame+=5}
+]
+},
+{
+emoji:"💰",
+dialogue:"투자 기회 등장!",
+choices:[
+{text:"투자한다",effect:()=>money+=30},
+{text:"피한다",effect:()=>money-=5}
+]
+}
+];
+
+function spawnNPC(){
+let type=npcTypes[Math.floor(Math.random()*npcTypes.length)];
+const npc=document.createElement("div");
+npc.className="npc";
+npc.innerText=type.emoji;
+npc.style.left=Math.random()*(gameArea.offsetWidth-60)+"px";
+gameArea.appendChild(npc);
+
+npcs.push({
+element:npc,
+data:type
+});
+}
+
+function gameLoop(){
+
+if(moveLeft)playerX-=4;
+if(moveRight)playerX+=4;
+
+if(playerX<0)playerX=0;
+if(playerX>gameArea.offsetWidth-40)playerX=gameArea.offsetWidth-40;
+
+player.style.left=playerX+"px";
+
+if(isJumping){
+velocityY-=1;
+let bottom=parseInt(player.style.bottom||20);
+bottom+=velocityY;
+if(bottom<=20){bottom=20;isJumping=false;velocityY=0;}
+player.style.bottom=bottom+"px";
+}
+
+npcs.forEach((npcObj,index)=>checkCollision(npcObj,index));
+
+requestAnimationFrame(gameLoop);
+}
+
+function jump(){
+if(!isJumping){isJumping=true;velocityY=15;}
+}
+
+function checkCollision(npcObj,index){
+
+if(invincible)return;
+
+const p=player.getBoundingClientRect();
+const n=npcObj.element.getBoundingClientRect();
+
+if(p.right>n.left&&p.left<n.right&&p.bottom>n.top&&p.top<n.bottom){
+openDialogue(npcObj,index);
+}
+}
+
+function openDialogue(npcObj,index){
+
+dialogueBox.style.display="block";
+document.getElementById("dialogueText").innerText=npcObj.data.dialogue;
+
+const choicesDiv=document.getElementById("choices");
+choicesDiv.innerHTML="";
+
+npcObj.data.choices.forEach(choice=>{
+let btn=document.createElement("button");
+btn.className="choiceBtn";
+btn.innerText=choice.text;
+btn.onclick=()=>{
+choice.effect();
+updateStats();
+closeDialogue(npcObj,index);
+};
+choicesDiv.appendChild(btn);
+});
+}
+
+function closeDialogue(npcObj,index){
+dialogueBox.style.display="none";
+npcObj.element.remove();
+npcs.splice(index,1);
+spawnNPC();
+}
+
+function useSkill(){
+if(skillCooldown)return;
+invincible=true;
+skillCooldown=true;
+player.style.filter="brightness(2)";
+setTimeout(()=>{invincible=false;player.style.filter="none";},2000);
+setTimeout(()=>skillCooldown=false,5000);
+}
+
+function updateStats(){
+document.getElementById("hp").innerText=hp;
+document.getElementById("money").innerText=money;
+document.getElementById("fame").innerText=fame;
+if(hp<=0)alert("💀 GAME OVER");
+}
+
+/* 터치 */
+document.getElementById("leftBtn").addEventListener("touchstart",()=>moveLeft=true);
+document.getElementById("leftBtn").addEventListener("touchend",()=>moveLeft=false);
+
+document.getElementById("rightBtn").addEventListener("touchstart",()=>moveRight=true);
+document.getElementById("rightBtn").addEventListener("touchend",()=>moveRight=false);
+
+document.getElementById("jumpBtn").addEventListener("touchstart",jump);
+document.getElementById("skillBtn").addEventListener("touchstart",useSkill);
+
+/* 초기 NPC 생성 */
+for(let i=0;i<3;i++)spawnNPC();
+
+gameLoop();
+</script>
+
+</body>
+</html>
