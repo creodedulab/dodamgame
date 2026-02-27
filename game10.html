@@ -1,0 +1,320 @@
+<!DOCTYPE html>
+<html>
+<head>
+<meta charset="UTF-8">
+<title>Ultimate TPS Mobile</title>
+<style>
+body { margin:0; overflow:hidden; background:black; touch-action:none; }
+
+#ui {
+ position:fixed;
+ top:10px; left:10px;
+ color:white;
+ font-family:sans-serif;
+ z-index:10;
+}
+button { padding:6px; margin:3px; }
+progress { width:200px; }
+
+#deathScreen{
+ position:fixed;
+ top:0; left:0;
+ width:100%; height:100%;
+ background:rgba(0,0,0,0.9);
+ color:red;
+ font-size:40px;
+ display:none;
+ justify-content:center;
+ align-items:center;
+ flex-direction:column;
+ z-index:999;
+}
+
+/* 가상 조이스틱 */
+#joystickBase{
+ position:fixed;
+ bottom:80px;
+ left:60px;
+ width:120px;
+ height:120px;
+ background:rgba(255,255,255,0.1);
+ border-radius:50%;
+ z-index:20;
+}
+#joystickKnob{
+ position:absolute;
+ width:60px;
+ height:60px;
+ left:30px;
+ top:30px;
+ background:rgba(255,255,255,0.4);
+ border-radius:50%;
+}
+</style>
+</head>
+<body>
+
+<div id="ui">
+ 체력: <progress id="hpBar" value="100" max="100"></progress><br>
+ 탄약: <span id="ammoText"></span><br>
+ <button onclick="shoot()">🔫 사격</button>
+ <button onclick="reload()">🔄 재장전</button>
+ <button onclick="drinkPotion()">🧪 포션</button>
+ <button onclick="toggleWeather()">🌧 날씨</button>
+</div>
+
+<div id="joystickBase">
+ <div id="joystickKnob"></div>
+</div>
+
+<div id="deathScreen">
+ 💀 당신은 사망했습니다<br>
+ <span style="font-size:20px;color:white;">화면을 터치하면 리셋</span>
+</div>
+
+<script src="https://cdn.jsdelivr.net/npm/three@0.158/build/three.min.js"></script>
+
+<script>
+let scene = new THREE.Scene();
+scene.background = new THREE.Color(0x202530);
+
+let camera = new THREE.PerspectiveCamera(75,innerWidth/innerHeight,0.1,1000);
+let renderer = new THREE.WebGLRenderer({antialias:true});
+renderer.setSize(innerWidth,innerHeight);
+document.body.appendChild(renderer.domElement);
+
+let light = new THREE.HemisphereLight(0xffffff,0x444444,1);
+scene.add(light);
+
+/* 플레이어 */
+let player = new THREE.Group();
+let body = new THREE.Mesh(
+ new THREE.BoxGeometry(1,2,0.5),
+ new THREE.MeshStandardMaterial({color:0x00aaee})
+);
+body.position.y=1;
+let head = new THREE.Mesh(
+ new THREE.SphereGeometry(0.4),
+ new THREE.MeshStandardMaterial({color:0xffccaa})
+);
+head.position.y=2.4;
+player.add(body);
+player.add(head);
+scene.add(player);
+
+/* 카메라 */
+let cameraOffset = new THREE.Vector3(0,3,6);
+
+/* 맵 */
+let floor = new THREE.Mesh(
+ new THREE.PlaneGeometry(500,500),
+ new THREE.MeshStandardMaterial({color:0x2d2d2d})
+);
+floor.rotation.x=-Math.PI/2;
+scene.add(floor);
+
+/* 체력 */
+let hp=100;
+let hpBar=document.getElementById("hpBar");
+let isDead=false;
+let deathScreen=document.getElementById("deathScreen");
+
+/* 탄약 */
+let ammo=15,maxAmmo=15,reserve=60;
+let ammoText=document.getElementById("ammoText");
+function updateAmmo(){ ammoText.innerText=ammo+" / "+reserve; }
+updateAmmo();
+
+/* 적 */
+let enemies=[];
+function createEnemy(isBoss=false){
+ let group=new THREE.Group();
+ let body=new THREE.Mesh(
+  new THREE.BoxGeometry(1,2,0.5),
+  new THREE.MeshStandardMaterial({color:isBoss?0x0000ff:0xaa0000})
+ );
+ body.position.y=1;
+ group.add(body);
+ group.position.set(Math.random()*100-50,0,Math.random()*-100);
+ group.health=isBoss?200:50;
+ group.isBoss=isBoss;
+ scene.add(group);
+ enemies.push(group);
+}
+for(let i=0;i<5;i++) createEnemy(false);
+createEnemy(true);
+
+/* 조이스틱 */
+let joystickBase=document.getElementById("joystickBase");
+let joystickKnob=document.getElementById("joystickKnob");
+let moveVector=new THREE.Vector2(0,0);
+let isMoving=false;
+let isLooking=false;
+let lookStartX=0;
+
+document.addEventListener("touchstart",e=>{
+ if(isDead){ location.reload(); return; }
+ let touch=e.touches[0];
+
+ if(touch.clientX<innerWidth/2){
+  isMoving=true;
+ }else{
+  isLooking=true;
+  lookStartX=touch.clientX;
+ }
+});
+
+document.addEventListener("touchmove",e=>{
+ if(isDead)return;
+ let touch=e.touches[0];
+
+ if(isMoving && touch.clientX<innerWidth/2){
+  let rect=joystickBase.getBoundingClientRect();
+  let x=touch.clientX-(rect.left+60);
+  let y=touch.clientY-(rect.top+60);
+
+  let dist=Math.sqrt(x*x+y*y);
+  if(dist>50){
+   x*=50/dist;
+   y*=50/dist;
+  }
+
+  joystickKnob.style.left=(x+60-30)+"px";
+  joystickKnob.style.top=(y+60-30)+"px";
+
+  moveVector.x=x/50;
+  moveVector.y=y/50;
+ }
+
+ if(isLooking && touch.clientX>innerWidth/2){
+  let deltaX=touch.clientX-lookStartX;
+  player.rotation.y-=deltaX*0.005;
+  lookStartX=touch.clientX;
+ }
+});
+
+document.addEventListener("touchend",()=>{
+ isMoving=false;
+ isLooking=false;
+ moveVector.set(0,0);
+ joystickKnob.style.left="30px";
+ joystickKnob.style.top="30px";
+});
+
+/* 자동조준 보정 */
+function autoAim(direction){
+ let closest=null;
+ let minDist=Infinity;
+
+ enemies.forEach(enemy=>{
+  let dist=enemy.position.distanceTo(player.position);
+  if(dist<minDist){
+   minDist=dist;
+   closest=enemy;
+  }
+ });
+
+ if(closest && minDist<30){
+  direction.lerp(
+   closest.position.clone().sub(player.position).normalize(),
+   0.2
+  );
+ }
+}
+
+/* 사격 */
+function shoot(){
+ if(isDead||ammo<=0)return;
+ ammo--;
+ updateAmmo();
+
+ let direction=new THREE.Vector3(0,0,-1)
+  .applyQuaternion(player.quaternion);
+
+ autoAim(direction);
+
+ let ray=new THREE.Raycaster();
+ ray.set(player.position,direction);
+
+ let hits=ray.intersectObjects(enemies,true);
+ if(hits.length>0){
+  let enemy=hits[0].object.parent;
+  enemy.health-=20;
+  if(enemy.health<=0){
+   scene.remove(enemy);
+   enemies=enemies.filter(e=>e!==enemy);
+  }
+ }
+
+ // 반동
+ camera.position.y+=0.2;
+}
+
+/* 재장전 */
+function reload(){
+ if(isDead||reserve<=0)return;
+ let needed=maxAmmo-ammo;
+ if(reserve>=needed){
+  ammo=maxAmmo;
+  reserve-=needed;
+ }else{
+  ammo+=reserve;
+  reserve=0;
+ }
+ updateAmmo();
+}
+
+/* 포션 */
+function drinkPotion(){
+ if(isDead)return;
+ hp+=40;
+ if(hp>100)hp=100;
+}
+
+/* 적 AI */
+function enemyAI(){
+ enemies.forEach(enemy=>{
+  let dir=new THREE.Vector3();
+  dir.subVectors(player.position,enemy.position).normalize();
+  enemy.position.add(dir.multiplyScalar(enemy.isBoss?0.03:0.02));
+  if(enemy.position.distanceTo(player.position)<3){
+   hp-=enemy.isBoss?1:0.3;
+  }
+ });
+}
+
+/* 루프 */
+function animate(){
+ requestAnimationFrame(animate);
+
+ if(isDead){
+  renderer.render(scene,camera);
+  return;
+ }
+
+ if(isMoving){
+  player.translateZ(-moveVector.y*0.4);
+  player.translateX(moveVector.x*0.3);
+ }
+
+ enemyAI();
+
+ if(hp<=0&&!isDead){
+  isDead=true;
+  deathScreen.style.display="flex";
+ }
+
+ hpBar.value=hp;
+
+ let desiredPosition=player.position.clone().add(
+  cameraOffset.clone().applyQuaternion(player.quaternion)
+ );
+ camera.position.lerp(desiredPosition,0.1);
+ camera.lookAt(player.position);
+
+ renderer.render(scene,camera);
+}
+animate();
+</script>
+</body>
+</html>
