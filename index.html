@@ -194,6 +194,8 @@
             font-weight: bold;
             border-radius: 8px;
             text-align: center;
+            cursor: pointer;
+            border: none;
             transition: background 0.3s, transform 0.2s;
             box-shadow: 0 4px 10px rgba(76, 175, 80, 0.4);
         }
@@ -201,6 +203,26 @@
         .play-btn:hover {
             background-color: #45a049;
             transform: scale(1.05);
+        }
+
+        /* --- 5. 실제 게임 플레이 화면 디자인 (iframe) --- */
+        #game-play-view {
+            display: none; /* 처음엔 숨김 */
+            width: 100%;
+            /* 화면 전체 높이에서 헤더, 푸터, 여백을 뺀 높이 설정 */
+            height: calc(100vh - 160px); 
+            max-width: 1200px;
+            margin: 0 auto;
+            animation: fadeIn 0.4s ease;
+        }
+
+        #game-iframe {
+            width: 100%;
+            height: 100%;
+            border: none; /* 테두리 제거 */
+            border-radius: 12px;
+            background-color: #000;
+            box-shadow: 0 8px 30px rgba(0,0,0,0.5);
         }
 
         /* 모바일 화면 대응 (화면이 좁아지면 위아래로 배치) */
@@ -250,9 +272,15 @@
                 <div class="info-box">
                     <h2 id="detail-title">게임 제목</h2>
                     <p id="detail-desc">여기에 게임에 대한 상세한 설명이 들어갑니다. 재미있게 플레이하세요!</p>
-                    <a href="#" id="detail-link" class="play-btn">🚀 바로 게임하기</a>
+                    <button id="detail-link" class="play-btn">🚀 바로 게임하기</button>
                 </div>
             </div>
+        </div>
+
+        <!-- 3. 실제 게임 플레이 화면 (iframe) -->
+        <div id="game-play-view">
+            <!-- src 속성에 게임 html 경로가 들어가며 실행됩니다 -->
+            <iframe id="game-iframe" src=""></iframe>
         </div>
     </main>
 
@@ -371,14 +399,19 @@
             // 선택된 게임 정보 찾기
             const game = gameData.find(g => g.id === id);
 
-            // 화면 전환 (홈 숨기고, 상세 화면 보이기)
+            // 화면 전환 (홈 숨기고, 게임화면 숨기고, 상세 화면 보이기)
             document.getElementById('home-view').style.display = 'none';
+            document.getElementById('game-play-view').style.display = 'none';
             document.getElementById('detail-view').style.display = 'block';
 
             // 상세 화면 내용 업데이트
             document.getElementById('detail-title').innerText = game.title;
             document.getElementById('detail-desc').innerText = game.desc;
-            document.getElementById('detail-link').href = game.link;
+            
+            // "바로 게임하기" 버튼에 이벤트 연결
+            document.getElementById('detail-link').onclick = function() {
+                startGame(game.link);
+            };
             
             // 영상 업데이트 및 재생 설정
             const videoElement = document.getElementById('detail-video');
@@ -386,14 +419,32 @@
             videoElement.load(); // 비디오 소스 새로고침
         }
 
-        // 3. 헤더의 '홈으로' 버튼을 눌렀을 때 실행되는 함수
+        // 3. 게임 실행 함수 (iframe 로드)
+        function startGame(gameUrl) {
+            // 재생 중인 비디오 정지
+            const videoElement = document.getElementById('detail-video');
+            videoElement.pause();
+
+            // 화면 전환 (상세 숨기고, 게임 플레이 화면 보이기)
+            document.getElementById('detail-view').style.display = 'none';
+            document.getElementById('game-play-view').style.display = 'block';
+            
+            // iframe에 선택한 게임의 html 주소 삽입하여 실행
+            document.getElementById('game-iframe').src = gameUrl;
+        }
+
+        // 4. 헤더의 '홈으로' 버튼을 눌렀을 때 실행되는 함수
         function goHome() {
             // 상세 화면에 재생 중인 비디오가 있다면 정지
             const videoElement = document.getElementById('detail-video');
             videoElement.pause();
 
-            // 화면 전환 (상세 숨기고, 홈 화면 보이기)
+            // iframe에서 실행 중인 게임도 정지 (소리 등 초기화)
+            document.getElementById('game-iframe').src = "";
+
+            // 화면 전환 (상세 숨기고, 게임 숨기고, 홈 화면 보이기)
             document.getElementById('detail-view').style.display = 'none';
+            document.getElementById('game-play-view').style.display = 'none';
             document.getElementById('home-view').style.display = 'block';
         }
 
