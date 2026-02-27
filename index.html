@@ -3,66 +3,118 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>마이 게임 아케이드</title>
+    <title>전주도담x크레오디 게임</title>
     <style>
-        /* 전체 페이지 디자인 (다크 테마) */
+        /* 기본 설정 (다크 테마) */
         body {
             font-family: 'Pretendard', 'Malgun Gothic', sans-serif;
-            text-align: center;
             background-color: #1e1e2f;
             color: #ffffff;
             margin: 0;
-            padding: 50px 20px;
+            /* 고정 헤더(70px)와 푸터(50px) 공간 확보를 위한 패딩 */
+            padding: 90px 20px 70px 20px; 
+            text-align: center;
         }
-        
+
+        /* --- 1. 고정 헤더 디자인 --- */
+        header {
+            position: fixed;
+            top: 0;
+            left: 0;
+            width: 100%;
+            height: 70px;
+            background-color: #151522;
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            padding: 0 30px;
+            box-sizing: border-box;
+            z-index: 1000;
+            box-shadow: 0 4px 10px rgba(0,0,0,0.5);
+        }
+
+        .logo-img {
+            height: 40px; /* 로고 이미지의 세로 크기입니다. 필요시 숫자를 조절하세요 */
+            cursor: pointer;
+            object-fit: contain;
+        }
+
+        .home-btn {
+            background-color: #333;
+            color: white;
+            border: none;
+            padding: 10px 20px;
+            border-radius: 8px;
+            cursor: pointer;
+            font-size: 1rem;
+            font-weight: bold;
+            transition: background 0.3s;
+        }
+
+        .home-btn:hover {
+            background-color: #555;
+        }
+
+        /* --- 2. 고정 푸터 디자인 --- */
+        footer {
+            position: fixed;
+            bottom: 0;
+            left: 0;
+            width: 100%;
+            height: 50px;
+            background-color: #151522;
+            display: flex;
+            justify-content: center;
+            align-items: center;
+            z-index: 1000;
+            font-size: 0.9rem;
+            color: #888;
+            box-shadow: 0 -4px 10px rgba(0,0,0,0.3);
+        }
+
+        /* --- 3. 홈 화면 (게임 목록) 디자인 --- */
         h1 {
             margin-bottom: 40px;
             text-shadow: 0 4px 10px rgba(0,0,0,0.5);
         }
 
-        /* 반응형 그리드 레이아웃 */
         .button-container {
             display: grid;
-            /* 세로형 이미지에 맞게 기본 너비를 살짝 줄였습니다 */
             grid-template-columns: repeat(auto-fit, minmax(160px, 1fr));
             gap: 25px;
             max-width: 1000px;
             margin: 0 auto;
         }
 
-        /* 이미지 버튼(카드) 디자인 */
         .game-card {
             display: block;
             position: relative;
             width: 100%;
-            aspect-ratio: 9 / 16; /* 핵심: 9:16 세로 비율 고정 */
+            aspect-ratio: 9 / 16;
             border-radius: 16px;
             overflow: hidden;
             text-decoration: none;
+            cursor: pointer; /* 클릭 가능한 버튼임을 표시 */
             box-shadow: 0 8px 20px rgba(0,0,0,0.4);
             transition: transform 0.3s ease, box-shadow 0.3s ease;
         }
 
-        /* 카드에 마우스를 올렸을 때 (호버 효과) */
         .game-card:hover {
-            transform: translateY(-10px); /* 위로 살짝 떠오름 */
+            transform: translateY(-10px);
             box-shadow: 0 12px 25px rgba(0,0,0,0.6);
         }
 
-        /* 카드 안의 이미지 설정 */
         .game-card img {
             width: 100%;
             height: 100%;
-            object-fit: cover; /* 이미지가 비율에 맞춰 잘리지 않고 꽉 참 */
+            object-fit: cover;
             transition: transform 0.3s ease;
         }
 
-        /* 마우스를 올리면 이미지가 살짝 확대됨 */
         .game-card:hover img {
             transform: scale(1.1);
         }
 
-        /* 게임 제목 텍스트 디자인 (이미지 하단에 오버레이) */
         .game-title {
             position: absolute;
             bottom: 0;
@@ -73,57 +125,281 @@
             color: white;
             font-weight: bold;
             font-size: 1.1rem;
-            text-align: center;
             letter-spacing: 1px;
+        }
+
+        /* --- 4. 게임 상세 소개 화면 디자인 --- */
+        #detail-view {
+            display: none; /* 처음에는 숨겨둠 */
+            max-width: 900px;
+            margin: 0 auto;
+            animation: fadeIn 0.4s ease;
+        }
+
+        .detail-content {
+            display: flex;
+            gap: 40px;
+            background-color: #27273c;
+            padding: 30px;
+            border-radius: 16px;
+            box-shadow: 0 8px 30px rgba(0,0,0,0.5);
+            text-align: left;
+        }
+
+        /* 좌측 영상 영역 */
+        .video-box {
+            flex: 1; /* 절반 차지 */
+            background-color: #000;
+            border-radius: 12px;
+            overflow: hidden;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+        }
+
+        .video-box video {
+            width: 100%;
+            height: auto;
+            max-height: 400px;
+            border-radius: 12px;
+        }
+
+        /* 우측 설명 및 버튼 영역 */
+        .info-box {
+            flex: 1; /* 절반 차지 */
+            display: flex;
+            flex-direction: column;
+            justify-content: center;
+        }
+
+        .info-box h2 {
+            margin-top: 0;
+            font-size: 2rem;
+            color: #4CAF50;
+        }
+
+        .info-box p {
+            font-size: 1.1rem;
+            line-height: 1.6;
+            color: #ccc;
+            margin-bottom: 40px;
+        }
+
+        .play-btn {
+            background-color: #4CAF50;
+            color: white;
+            text-decoration: none;
+            padding: 15px 30px;
+            font-size: 1.3rem;
+            font-weight: bold;
+            border-radius: 8px;
+            text-align: center;
+            transition: background 0.3s, transform 0.2s;
+            box-shadow: 0 4px 10px rgba(76, 175, 80, 0.4);
+        }
+
+        .play-btn:hover {
+            background-color: #45a049;
+            transform: scale(1.05);
+        }
+
+        /* 모바일 화면 대응 (화면이 좁아지면 위아래로 배치) */
+        @media (max-width: 768px) {
+            .detail-content {
+                flex-direction: column;
+            }
+        }
+
+        @keyframes fadeIn {
+            from { opacity: 0; transform: translateY(20px); }
+            to { opacity: 1; transform: translateY(0); }
         }
     </style>
 </head>
 <body>
 
-    <h1>🕹️ 전주도담x크레오디 게임 🕹️</h1>
+    <!-- 고정 헤더 -->
+    <header>
+        <!-- 텍스트 로고 대신 이미지 태그로 변경했습니다 -->
+        <img src="image/logo.png" alt="전주도담x크레오디 로고" class="logo-img" onclick="goHome()">
+        <button class="home-btn" onclick="goHome()">🏠 홈으로</button>
+    </header>
 
-    <div class="button-container">
-        <a href="game1.html" class="game-card">
-            <img src="image/image1.png" alt="게임 1 썸네일">
-            <div class="game-title">CUT JUMP 180</div>
-        </a>
-        <a href="game2.html" class="game-card">
-            <img src="image/image2.png" alt="게임 2 썸네일">
-            <div class="game-title">ANIMAL PARTY</div>
-        </a>
-        <a href="game3.html" class="game-card">
-            <img src="image/image3.png" alt="게임 3 썸네일">
-            <div class="game-title">NUNCHI LEAUGE</div>
-        </a>
-        <a href="game4.html" class="game-card">
-            <img src="image/image4.png" alt="게임 4 썸네일">
-            <div class="game-title">LIFE IS LUCK</div>
-        </a>
-        <a href="game5.html" class="game-card">
-            <img src="image/image5.png" alt="게임 5 썸네일">
-            <div class="game-title">REACTION BLITZ</div>
-        </a>
-        <a href="game6.html" class="game-card">
-            <img src="image/image6.png" alt="게임 6 썸네일">
-            <div class="game-title">DUNGEON GOLD HUNTER</div>
-        </a>
-        <a href="game7.html" class="game-card">
-            <img src="image/image7.png" alt="게임 7 썸네일">
-            <div class="game-title">NEON PULSE</div>
-        </a>
-        <a href="game8.html" class="game-card">
-            <img src="image/image8.png" alt="게임 8 썸네일">
-            <div class="game-title">LAST BALLOON</div>
-        </a>
-        <a href="game9.html" class="game-card">
-            <img src="image/image9.png" alt="게임 9 썸네일">
-            <div class="game-title">HEARTBEAT ESCAPE</div>
-        </a>
-                <a href="game10.html" class="game-card">
-            <img src="image/image10.png" alt="게임 10 썸네일">
-            <div class="game-title">유진(대기중)</div>
-        </a>
-    </div>
+    <!-- 메인 콘텐츠 영역 -->
+    <main>
+        <!-- 1. 게임 목록 (홈) 화면 -->
+        <div id="home-view">
+            <h1>🕹️ 전주도담x크레오디 게임 🕹️</h1>
+            <div class="button-container" id="game-grid">
+                <!-- Javascript를 통해 게임 카드들이 여기에 생성됩니다. -->
+            </div>
+        </div>
+
+        <!-- 2. 게임 소개 상세 화면 -->
+        <div id="detail-view">
+            <h1 id="detail-header-title">게임 소개</h1>
+            <div class="detail-content">
+                <!-- 좌측 영상 -->
+                <div class="video-box">
+                    <video id="detail-video" controls>
+                        <source src="" type="video/mp4">
+                        브라우저가 비디오를 지원하지 않습니다.
+                    </video>
+                </div>
+                <!-- 우측 설명 및 버튼 -->
+                <div class="info-box">
+                    <h2 id="detail-title">게임 제목</h2>
+                    <p id="detail-desc">여기에 게임에 대한 상세한 설명이 들어갑니다. 재미있게 플레이하세요!</p>
+                    <a href="#" id="detail-link" class="play-btn">🚀 바로 게임하기</a>
+                </div>
+            </div>
+        </div>
+    </main>
+
+    <!-- 고정 푸터 -->
+    <footer>
+        &copy; 2026 크레오디교육연구소. All rights reserved.
+    </footer>
+
+    <!-- 게임 데이터 및 화면 전환 스크립트 -->
+    <script>
+        // 🎯 이 배열 안에 각 게임의 정보를 입력하고 수정하시면 됩니다!
+        const gameData = [
+            { 
+                id: 1, 
+                title: "CUT JUMP 180", 
+                img: "image/image1.png", 
+                link: "game1.html", 
+                video: "video/game1_intro.mp4", 
+                desc: "뾰족한 잉크를 피해서 원고 마감에 성공하세요! 고도의 집중력이 필요한 아케이드 게임입니다." 
+            },
+            { 
+                id: 2, 
+                title: "ANIMAL PARTY", 
+                img: "image/image2.png", 
+                link: "game2.html", 
+                video: "video/game2_intro.mp4", 
+                desc: "귀여운 토끼와 함께하는 점프 파티 게임! 장애물을 피해 최대한 멀리 달려가세요!" 
+            },
+            { 
+                id: 3, 
+                title: "NUNCHI LEAUGE", 
+                img: "image/image3.png", 
+                link: "game3.html", 
+                video: "video/game3_intro.mp4", 
+                desc: "누구보다 빠르게, 남들과는 다르게! 최고의 눈치를 가진 자만이 살아남는 리그." 
+            },
+            { 
+                id: 4, 
+                title: "LIFE IS LUCK", 
+                img: "image/image4.png", 
+                link: "game4.html", 
+                video: "video/game4_intro.mp4", 
+                desc: "당신의 운을 시험해볼 시간입니다. 선택의 기로에서 행운의 여신은 누구의 손을 들어줄까요?" 
+            },
+            { 
+                id: 5, 
+                title: "REACTION BLITZ", 
+                img: "image/image5.png", 
+                link: "game5.html", 
+                video: "video/game5_intro.mp4", 
+                desc: "빛의 속도로 반응하라! 한계에 도전하는 반사신경 테스트 게임." 
+            },
+            { 
+                id: 6, 
+                title: "DUNGEON GOLD HUNTER", 
+                img: "image/image6.png", 
+                link: "game6.html", 
+                video: "video/game6_intro.mp4", 
+                desc: "어두운 던전 속에 숨겨진 황금을 찾아 떠나는 위험천만한 모험을 시작하세요." 
+            },
+            { 
+                id: 7, 
+                title: "NEON PULSE", 
+                img: "image/image7.png", 
+                link: "game7.html", 
+                video: "video/game7_intro.mp4", 
+                desc: "화려한 네온사인 속에서 비트에 맞춰 펄스를 타는 리듬 액션 게임." 
+            },
+            { 
+                id: 8, 
+                title: "LAST BALLOON", 
+                img: "image/image8.png", 
+                link: "game8.html", 
+                video: "video/game8_intro.mp4", 
+                desc: "바늘을 피하고 마지막까지 터지지 않고 살아남는 최후의 풍선이 되어보세요!" 
+            },
+            { 
+                id: 9, 
+                title: "HEARTBEAT ESCAPE", 
+                img: "image/image9.png", 
+                link: "game9.html", 
+                video: "video/game9_intro.mp4", 
+                desc: "심장 박동이 멈추기 전에 환자의 생명을 살려야 합니다!" 
+            },
+            { 
+                id: 10, 
+                title: "유진(대기중)", 
+                img: "image/image10.png", 
+                link: "game10.html", 
+                video: "video/game10_intro.mp4", 
+                desc: "현재 열심히 개발 중인 새로운 게임입니다. 곧 만나보실 수 있습니다!" 
+            }
+        ];
+
+        // 1. 페이지 로드 시 홈 화면에 게임 카드들을 생성하는 함수
+        function renderGames() {
+            const grid = document.getElementById('game-grid');
+            grid.innerHTML = ''; // 초기화
+
+            gameData.forEach(game => {
+                const card = document.createElement('div');
+                card.className = 'game-card';
+                // 클릭 시 해당 게임의 ID를 넘겨 상세 화면으로 전환
+                card.onclick = () => showDetail(game.id);
+
+                card.innerHTML = `
+                    <img src="${game.img}" alt="${game.title} 썸네일">
+                    <div class="game-title">${game.title}</div>
+                `;
+                grid.appendChild(card);
+            });
+        }
+
+        // 2. 게임 카드를 클릭했을 때 상세 화면을 보여주는 함수
+        function showDetail(id) {
+            // 선택된 게임 정보 찾기
+            const game = gameData.find(g => g.id === id);
+
+            // 화면 전환 (홈 숨기고, 상세 화면 보이기)
+            document.getElementById('home-view').style.display = 'none';
+            document.getElementById('detail-view').style.display = 'block';
+
+            // 상세 화면 내용 업데이트
+            document.getElementById('detail-title').innerText = game.title;
+            document.getElementById('detail-desc').innerText = game.desc;
+            document.getElementById('detail-link').href = game.link;
+            
+            // 영상 업데이트 및 재생 설정
+            const videoElement = document.getElementById('detail-video');
+            videoElement.src = game.video;
+            videoElement.load(); // 비디오 소스 새로고침
+        }
+
+        // 3. 헤더의 '홈으로' 버튼을 눌렀을 때 실행되는 함수
+        function goHome() {
+            // 상세 화면에 재생 중인 비디오가 있다면 정지
+            const videoElement = document.getElementById('detail-video');
+            videoElement.pause();
+
+            // 화면 전환 (상세 숨기고, 홈 화면 보이기)
+            document.getElementById('detail-view').style.display = 'none';
+            document.getElementById('home-view').style.display = 'block';
+        }
+
+        // 페이지가 처음 켜질 때 게임 목록 생성 실행
+        window.onload = renderGames;
+    </script>
 
 </body>
 </html>
