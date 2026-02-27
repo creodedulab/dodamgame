@@ -1,0 +1,129 @@
+<!DOCTYPE html>
+<html lang="ko">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>마이 게임 아케이드</title>
+    <style>
+        /* 전체 페이지 디자인 (다크 테마) */
+        body {
+            font-family: 'Pretendard', 'Malgun Gothic', sans-serif;
+            text-align: center;
+            background-color: #1e1e2f;
+            color: #ffffff;
+            margin: 0;
+            padding: 50px 20px;
+        }
+        
+        h1 {
+            margin-bottom: 40px;
+            text-shadow: 0 4px 10px rgba(0,0,0,0.5);
+        }
+
+        /* 반응형 그리드 레이아웃 */
+        .button-container {
+            display: grid;
+            /* 세로형 이미지에 맞게 기본 너비를 살짝 줄였습니다 */
+            grid-template-columns: repeat(auto-fit, minmax(160px, 1fr));
+            gap: 25px;
+            max-width: 1000px;
+            margin: 0 auto;
+        }
+
+        /* 이미지 버튼(카드) 디자인 */
+        .game-card {
+            display: block;
+            position: relative;
+            width: 100%;
+            aspect-ratio: 9 / 16; /* 핵심: 9:16 세로 비율 고정 */
+            border-radius: 16px;
+            overflow: hidden;
+            text-decoration: none;
+            box-shadow: 0 8px 20px rgba(0,0,0,0.4);
+            transition: transform 0.3s ease, box-shadow 0.3s ease;
+        }
+
+        /* 카드에 마우스를 올렸을 때 (호버 효과) */
+        .game-card:hover {
+            transform: translateY(-10px); /* 위로 살짝 떠오름 */
+            box-shadow: 0 12px 25px rgba(0,0,0,0.6);
+        }
+
+        /* 카드 안의 이미지 설정 */
+        .game-card img {
+            width: 100%;
+            height: 100%;
+            object-fit: cover; /* 이미지가 비율에 맞춰 잘리지 않고 꽉 참 */
+            transition: transform 0.3s ease;
+        }
+
+        /* 마우스를 올리면 이미지가 살짝 확대됨 */
+        .game-card:hover img {
+            transform: scale(1.1);
+        }
+
+        /* 게임 제목 텍스트 디자인 (이미지 하단에 오버레이) */
+        .game-title {
+            position: absolute;
+            bottom: 0;
+            left: 0;
+            width: 100%;
+            padding: 20px 0 15px;
+            background: linear-gradient(transparent, rgba(0,0,0,0.9));
+            color: white;
+            font-weight: bold;
+            font-size: 1.1rem;
+            text-align: center;
+            letter-spacing: 1px;
+        }
+    </style>
+</head>
+<body>
+
+    <h1>🕹️ 플레이 아케이드 🕹️</h1>
+
+    <div class="button-container">
+        <a href="game1.html" class="game-card">
+            <img src="pixel_cat.png" alt="게임 1 썸네일">
+            <div class="game-title">게임 1</div>
+        </a>
+        <a href="game2.html" class="game-card">
+            <img src="space_rabbit.jpg" alt="게임 2 썸네일">
+            <div class="game-title">게임 2</div>
+        </a>
+        <a href="game3.html" class="game-card">
+            <img src="pixel_fox.png" alt="게임 3 썸네일">
+            <div class="game-title">게임 3</div>
+        </a>
+        <a href="game4.html" class="game-card">
+            <img src="image4.png" alt="게임 4 썸네일">
+            <div class="game-title">게임 4</div>
+        </a>
+        <a href="game5.html" class="game-card">
+            <img src="image5.png" alt="게임 5 썸네일">
+            <div class="game-title">게임 5</div>
+        </a>
+        <a href="game6.html" class="game-card">
+            <img src="image6.png" alt="게임 6 썸네일">
+            <div class="game-title">게임 6</div>
+        </a>
+        <a href="game7.html" class="game-card">
+            <img src="image7.png" alt="게임 7 썸네일">
+            <div class="game-title">게임 7</div>
+        </a>
+        <a href="game8.html" class="game-card">
+            <img src="image8.png" alt="게임 8 썸네일">
+            <div class="game-title">게임 8</div>
+        </a>
+        <a href="game9.html" class="game-card">
+            <img src="image9.png" alt="게임 9 썸네일">
+            <div class="game-title">게임 9</div>
+        </a>
+        <a href="game10.html" class="game-card">
+            <img src="image10.png" alt="게임 10 썸네일">
+            <div class="game-title">게임 10</div>
+        </a>
+    </div>
+
+</body>
+</html>
