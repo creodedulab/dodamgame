@@ -1,0 +1,393 @@
+<!DOCTYPE html>
+<html lang="ko">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+    <title>Dungeon Gold Hunter - Enhanced Edition</title>
+    <style>
+        body { margin: 0; background: #111; color: white; overflow: hidden; font-family: 'Courier New', sans-serif; touch-action: none; }
+        canvas { display: block; background: #1a1a1a; }
+        #ui { position: absolute; top: 10px; left: 10px; pointer-events: none; width: calc(100% - 20px); z-index: 10; }
+        .stat-row { display: flex; justify-content: space-between; align-items: center; margin-bottom: 5px; }
+        .stat { font-size: 18px; font-weight: bold; color: gold; text-shadow: 2px 2px #000; }
+        #hp-container { width: 150px; height: 15px; background: #333; border: 2px solid #fff; }
+        #hp-bar { width: 100%; height: 100%; background: #ff4444; transition: width 0.2s; }
+        #joystick-container { position: absolute; bottom: 50px; left: 50px; width: 100px; height: 100px; background: rgba(255,255,255,0.1); border-radius: 50%; display: flex; align-items: center; justify-content: center; border: 2px solid rgba(255,255,255,0.2); }
+        #joystick-knob { width: 40px; height: 40px; background: rgba(255,255,255,0.4); border-radius: 50%; }
+        .overlay { position: absolute; top: 0; left: 0; width: 100%; height: 100%; background: rgba(0,0,0,0.85); display: none; flex-direction: column; align-items: center; justify-content: center; z-index: 100; }
+        .shop-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 15px; padding: 20px; width: 90%; max-width: 400px; }
+        .btn { background: gold; color: #000; padding: 15px; border: none; font-weight: bold; border-radius: 8px; font-size: 14px; cursor: pointer; }
+        .msg { position: absolute; top: 30%; width: 100%; text-align: center; font-size: 32px; color: gold; display: none; text-shadow: 3px 3px #000; pointer-events: none; }
+        #boss-hp-ui { position: absolute; top: 60px; left: 50%; transform: translateX(-50%); width: 80%; height: 10px; background: #333; border: 2px solid #ff4444; display: none; }
+        #boss-hp-fill { width: 100%; height: 100%; background: linear-gradient(to right, #ff0000, #ff8800); }
+    </style>
+</head>
+<body>
+    <div id="ui">
+        <div class="stat-row">
+            <div class="stat">GOLD: <span id="gold">0</span></div>
+            <div class="stat">WAVE <span id="wave">1</span></div>
+        </div>
+        <div class="stat-row">
+            <div id="hp-container"><div id="hp-bar"></div></div>
+            <div class="stat"><span id="timer">30</span>s</div>
+        </div>
+    </div>
+    
+    <div id="boss-hp-ui"><div id="boss-hp-fill"></div></div>
+    <div id="msg" class="msg">BOSS APPEARED!</div>
+
+    <div id="shop" class="overlay">
+        <h1 style="color: gold; margin-bottom: 5px;">SECRET SHOP</h1>
+        <div class="shop-grid" id="items"></div>
+        <button class="btn" style="background: #555; color: white; width: 200px; margin-top: 20px;" onclick="closeShop()">EXIT</button>
+    </div>
+
+    <div id="gameover" class="overlay">
+        <h1 style="color: #ff4444; font-size: 48px; margin-bottom: 10px;">GAME OVER</h1>
+        <p id="final-stat" style="font-size: 20px; margin-bottom: 30px;">GOLD: 0 | WAVE: 1</p>
+        <button class="btn" style="width: 200px; font-size: 20px;" onclick="resetGame()">RESTART</button>
+    </div>
+
+    <div id="joystick-container"><div id="joystick-knob"></div></div>
+    <canvas id="gameCanvas"></canvas>
+
+<script>
+const canvas = document.getElementById('gameCanvas');
+const ctx = canvas.getContext('2d');
+canvas.width = window.innerWidth;
+canvas.height = window.innerHeight;
+
+let player, enemies, projectiles, items, eProjectiles, effects;
+let wave, waveTime, isPaused, frame, gameActive, bossActive;
+let joystick = { active: false, dirX: 0, dirY: 0 };
+
+const weaponMeta = {
+    orbital: { name: "회전검", price: 50 },
+    dagger: { name: "연사단검", price: 70 },
+    bow: { name: "관통활", price: 90 },
+    potion: { name: "폭발물약", price: 80 }
+};
+
+function resetGame() {
+    player = { 
+        x: canvas.width/2, y: canvas.height/2, 
+        hp: 100, maxHp: 100, gold: 0, speed: 2.5, facing: 1, 
+        weapons: { sword: 1, orbital: 0, dagger: 0, bow: 0, potion: 0 } 
+    };
+    enemies = []; projectiles = []; items = []; eProjectiles = []; effects = [];
+    wave = 1; waveTime = 30; frame = 0;
+    isPaused = false; gameActive = true; bossActive = false;
+    document.getElementById('gameover').style.display = 'none';
+    document.getElementById('boss-hp-ui').style.display = 'none';
+}
+
+const jContainer = document.getElementById('joystick-container');
+const jKnob = document.getElementById('joystick-knob');
+const handleTouch = (e) => {
+    if (!gameActive || isPaused) return;
+    const touch = e.touches[0];
+    const rect = jContainer.getBoundingClientRect();
+    const cx = rect.left + rect.width / 2;
+    const cy = rect.top + rect.height / 2;
+    let dx = touch.clientX - cx; let dy = touch.clientY - cy;
+    const dist = Math.hypot(dx, dy);
+    if (dist < 100 || joystick.active) {
+        joystick.active = true;
+        const limit = 40;
+        if (dist > limit) { dx = (dx / dist) * limit; dy = (dy / dist) * limit; }
+        jKnob.style.transform = `translate(${dx}px, ${dy}px)`;
+        joystick.dirX = dx / limit; joystick.dirY = dy / limit;
+        if (joystick.dirX !== 0) player.facing = joystick.dirX > 0 ? 1 : -1;
+    }
+};
+window.addEventListener('touchstart', handleTouch);
+window.addEventListener('touchmove', handleTouch);
+window.addEventListener('touchend', () => { joystick.active = false; joystick.dirX = 0; joystick.dirY = 0; jKnob.style.transform = `translate(0,0)`; });
+
+function addEffect(type, x, y, options = {}) {
+    effects.push({ type, x, y, life: options.life || 20, ...options });
+}
+
+function spawnEnemy() {
+    if (isPaused || !gameActive) return;
+    const side = Math.floor(Math.random() * 4);
+    let x, y;
+    if(side === 0) { x = Math.random()*canvas.width; y = -50; }
+    else if(side === 1) { x = Math.random()*canvas.width; y = canvas.height+50; }
+    else if(side === 2) { x = -50; y = Math.random()*canvas.height; }
+    else { x = canvas.width+50; y = Math.random()*canvas.height; }
+    
+    // 6웨이브부터 스켈레톤 등장 확률 증가 (0.2 -> 0.4)
+    let skelChance = wave >= 6 ? 0.6 : 0.8;
+    let isSkel = Math.random() > skelChance; 
+    
+    // 웨이브 비례 능력치 강화
+    enemies.push({ 
+        x, y, 
+        type: isSkel ? 'skeleton' : 'zombie', 
+        hp: 25 + (wave * 5), 
+        maxHp: 25 + (wave * 5), 
+        speed: (isSkel ? 1.1 : 0.75) + (wave * 0.05), 
+        atk: 10 + Math.floor(wave / 2), 
+        size: 15 
+    });
+}
+
+function spawnBoss() {
+    bossActive = true;
+    document.getElementById('boss-hp-ui').style.display = 'block';
+    document.getElementById('msg').innerText = "BOSS APPEARED!";
+    document.getElementById('msg').style.display = 'block';
+    setTimeout(() => document.getElementById('msg').style.display = 'none', 3000);
+
+    enemies.push({ 
+        x: canvas.width/2, y: -100, type: 'boss', 
+        hp: 500 + (wave * 150), maxHp: 500 + (wave * 150), 
+        speed: 0.5 + (wave * 0.02), atk: 25 + wave, size: 60 
+    });
+}
+
+function attackSword() {
+    const target = enemies[0]; if (!target) return;
+    const ang = Math.atan2(target.y - player.y, target.x - player.x);
+    addEffect('slash', player.x, player.y, { angle: ang, life: 10 });
+    enemies.forEach(e => { if (Math.hypot(e.x - player.x, e.y - player.y) < 100) e.hp -= (15 + (player.weapons.sword * 2)); });
+}
+function attackDagger() {
+    const target = enemies.sort((a,b) => Math.hypot(a.x-player.x, a.y-player.y) - Math.hypot(b.x-player.x, b.y-player.y))[0];
+    if (!target) return;
+    const d = Math.hypot(target.x-player.x, target.y-player.y);
+    projectiles.push({ x: player.x, y: player.y, vx: (target.x-player.x)/d*9, vy: (target.y-player.y)/d*9, dmg: 10, color: 'silver' });
+}
+function attackBow() {
+    const target = enemies[Math.floor(Math.random()*enemies.length)];
+    if (!target) return;
+    const d = Math.hypot(target.x-player.x, target.y-player.y);
+    projectiles.push({ x: player.x, y: player.y, vx: (target.x-player.x)/d*13, vy: (target.y-player.y)/d*13, dmg: 20, pierce: true, color: 'yellow' });
+}
+function throwPotion() {
+    const target = enemies[0]; if (!target) return;
+    const tx = target.x, ty = target.y;
+    addEffect('particle', tx, ty, { color: 'purple', life: 20 });
+    setTimeout(() => {
+        addEffect('explosion', tx, ty, { life: 15 });
+        enemies.forEach(e => { if(Math.hypot(e.x-tx, e.y-ty) < 100) e.hp -= 50; });
+    }, 400);
+}
+
+function update() {
+    if (isPaused || !gameActive) { requestAnimationFrame(update); return; }
+    frame++;
+
+    player.x += joystick.dirX * player.speed;
+    player.y += joystick.dirY * player.speed;
+    player.x = Math.max(20, Math.min(canvas.width - 20, player.x));
+    player.y = Math.max(20, Math.min(canvas.height - 20, player.y));
+
+    if (frame % 50 === 0) attackSword();
+    if (player.weapons.dagger > 0 && frame % 40 === 0) attackDagger();
+    if (player.weapons.bow > 0 && frame % 100 === 0) attackBow();
+    if (player.weapons.potion > 0 && frame % 180 === 0) throwPotion();
+
+    // --- 수정된 적 스폰 로직 ---
+    // 웨이브가 높아질수록 스폰 간격이 짧아짐 (최소 30프레임 간격)
+    let spawnInterval = Math.max(30, 150 - (wave * 10)); 
+    if (frame % spawnInterval === 0 && !bossActive) {
+        // 6웨이브부터는 한 번에 여러 마리가 등장 (최대 6마리 동시 스폰)
+        let spawnCount = wave >= 6 ? Math.min(6, Math.floor(wave / 1.5)) : 1;
+        for(let i = 0; i < spawnCount; i++) {
+            spawnEnemy();
+        }
+    }
+
+    enemies.forEach((e, i) => {
+        const dx = player.x - e.x, dy = player.y - e.y, dist = Math.hypot(dx, dy);
+        e.x += (dx/dist) * e.speed; e.y += (dy/dist) * e.speed;
+        
+        if (e.type === 'boss') {
+            document.getElementById('boss-hp-fill').style.width = (e.hp/e.maxHp)*100 + "%";
+            if (frame % 100 === 0) {
+                for(let j=0; j<3; j++) {
+                    setTimeout(() => {
+                        const bd = Math.hypot(player.x-e.x, player.y-e.y);
+                        eProjectiles.push({ x: e.x, y: e.y, vx: (player.x-e.x)/bd*4, vy: (player.y-e.y)/bd*4, size: 10, color: '#ff4400' });
+                    }, j*200);
+                }
+            }
+        }
+
+        if (dist < e.size + 15 && frame % 60 === 0) player.hp -= e.atk;
+        if (e.type === 'skeleton' && dist < 250 && frame % 120 === 0) {
+            eProjectiles.push({ x: e.x, y: e.y, vx: (dx/dist)*3, vy: (dy/dist)*3, size: 4, color: 'white' });
+        }
+        
+        if (e.hp <= 0) { 
+            if(e.type === 'boss') {
+                player.gold += 200 + (wave * 20);
+                bossActive = false;
+                document.getElementById('boss-hp-ui').style.display = 'none';
+            } else {
+                player.gold += 5;
+                items.push({ x: e.x, y: e.y, type: 'gold' });
+                if(Math.random() < 0.1) items.push({ x: e.x + 10, y: e.y, type: 'hp_potion' });
+            }
+            enemies.splice(i, 1); 
+        }
+    });
+
+    projectiles.forEach((p, i) => {
+        p.x += p.vx; p.y += p.vy;
+        enemies.forEach(e => {
+            if (Math.hypot(p.x-e.x, p.y-e.y) < e.size) {
+                e.hp -= p.dmg;
+                if (!p.pierce) projectiles.splice(i, 1);
+            }
+        });
+        if(p.x < 0 || p.x > canvas.width || p.y < 0 || p.y > canvas.height) projectiles.splice(i, 1);
+    });
+
+    eProjectiles.forEach((ep, i) => {
+        ep.x += ep.vx; ep.y += ep.vy;
+        if (Math.hypot(ep.x-player.x, ep.y-player.y) < 20) { player.hp -= 15; eProjectiles.splice(i, 1); }
+        if(ep.x < -50 || ep.x > canvas.width+50 || ep.y < -50 || ep.y > canvas.height+50) eProjectiles.splice(i, 1);
+    });
+
+    items.forEach((it, i) => { 
+        const dist = Math.hypot(it.x-player.x, it.y-player.y);
+        if (dist < 100) { it.x += (player.x - it.x) * 0.15; it.y += (player.y - it.y) * 0.15; }
+        if (dist < 25) { 
+            if(it.type === 'hp_potion') player.hp = Math.min(player.maxHp, player.hp + 20);
+            items.splice(i, 1); 
+        } 
+    });
+
+    if (player.hp <= 0) { 
+        gameActive = false; 
+        document.getElementById('final-stat').innerText = `GOLD: ${player.gold} | WAVE: ${wave}`; 
+        document.getElementById('gameover').style.display = 'flex'; 
+    }
+    
+    draw();
+    requestAnimationFrame(update);
+}
+
+function draw() {
+    ctx.clearRect(0, 0, canvas.width, canvas.height);
+    
+    items.forEach(it => { 
+        if(it.type === 'gold') { ctx.fillStyle = 'gold'; ctx.beginPath(); ctx.arc(it.x, it.y, 4, 0, Math.PI*2); ctx.fill(); } 
+        else { ctx.fillStyle = '#ff4444'; ctx.fillRect(it.x-4, it.y, 8, 8); ctx.fillStyle = '#eee'; ctx.fillRect(it.x-2, it.y-3, 4, 3); }
+    });
+
+    ctx.save();
+    ctx.translate(player.x, player.y);
+    if (player.facing === -1) ctx.scale(-1, 1);
+    const legSwing = joystick.active ? Math.sin(frame * 0.2) * 10 : 0;
+    ctx.fillStyle = '#333'; ctx.fillRect(-7, 6 + (legSwing > 0 ? 0 : -2), 5, 12); ctx.fillRect(2, 6 + (legSwing > 0 ? -2 : 0), 5, 12);
+    ctx.fillStyle = '#55f'; ctx.fillRect(-10, -10, 20, 18);
+    ctx.fillStyle = '#ffdbac'; ctx.fillRect(-14, -8, 5, 10); ctx.fillRect(9, -8, 5, 10); ctx.fillRect(-8, -26, 16, 16);
+    ctx.fillStyle = '#000'; ctx.fillRect(3, -21, 3, 3);
+    ctx.restore();
+
+    if (player.weapons.orbital > 0) {
+        ctx.fillStyle = 'cyan';
+        for(let i=0; i < player.weapons.orbital; i++) {
+            const angle = (frame * 0.05) + (i * (Math.PI * 2 / player.weapons.orbital));
+            const ox = player.x + Math.cos(angle) * 75; const oy = player.y + Math.sin(angle) * 75;
+            ctx.beginPath(); ctx.arc(ox, oy, 8, 0, Math.PI*2); ctx.fill();
+            enemies.forEach(e => { if(Math.hypot(e.x-ox, e.y-oy) < 30) e.hp -= 0.8; });
+        }
+    }
+
+    enemies.forEach(e => {
+        ctx.save();
+        ctx.translate(e.x, e.y);
+        if (player.x < e.x) ctx.scale(-1, 1);
+
+        if (e.type === 'boss') {
+            ctx.fillStyle = '#4a0e0e'; ctx.beginPath(); ctx.arc(0, 0, e.size+5, 0, Math.PI*2); ctx.fill();
+            ctx.fillStyle = '#1d3d1a'; ctx.fillRect(-30, -80, 60, 60);
+            ctx.fillStyle = '#ff0000'; ctx.fillRect(10, -65, 10, 10);
+            ctx.fillStyle = '#2d1a1a'; ctx.fillRect(-40, -20, 80, 60);
+        } else if (e.type === 'zombie') {
+            const wobble = Math.sin(frame * 0.1) * 3;
+            ctx.fillStyle = '#2d5a27'; ctx.fillRect(-8, -24 + wobble, 16, 16); 
+            ctx.fillStyle = '#4a2c2a'; ctx.fillRect(-10, -8 + wobble, 20, 16); 
+            ctx.fillStyle = '#2d5a27'; ctx.fillRect(8, -6 + wobble, 12, 5); 
+            ctx.fillStyle = '#1a2a5a'; ctx.fillRect(-8, 8 + wobble, 6, 10); ctx.fillRect(2, 8 + wobble, 6, 10);
+        } else {
+            ctx.fillStyle = '#eee'; ctx.fillRect(-7, -23, 14, 14); 
+            ctx.fillStyle = '#000'; ctx.fillRect(2, -19, 3, 3); 
+            ctx.fillStyle = '#eee'; ctx.fillRect(-2, -9, 4, 18); ctx.fillRect(-10, -5, 20, 3);
+        }
+        ctx.restore();
+        if(e.type !== 'boss') {
+            const barW = 30;
+            ctx.fillStyle = '#333'; ctx.fillRect(e.x - barW/2, e.y - 35, barW, 5);
+            ctx.fillStyle = '#ff4444'; ctx.fillRect(e.x - barW/2, e.y - 35, barW * (e.hp / e.maxHp), 5);
+        }
+    });
+
+    projectiles.forEach(p => { ctx.fillStyle = p.color; ctx.fillRect(p.x-4, p.y-2, 8, 4); });
+    eProjectiles.forEach(ep => { ctx.fillStyle = ep.color; ctx.beginPath(); ctx.arc(ep.x, ep.y, ep.size || 4, 0, Math.PI*2); ctx.fill(); });
+    
+    effects.forEach((eff, i) => {
+        eff.life--; if (eff.life <= 0) { effects.splice(i, 1); return; }
+        ctx.globalAlpha = eff.life / 20;
+        if (eff.type === 'slash') {
+            ctx.strokeStyle = 'white'; ctx.lineWidth = 3; ctx.beginPath(); ctx.arc(eff.x, eff.y, 65, eff.angle-0.6, eff.angle+0.6); ctx.stroke();
+        } else if (eff.type === 'explosion') {
+            ctx.fillStyle = 'orange'; ctx.beginPath(); ctx.arc(eff.x, eff.y, 60 * (1.2 - eff.life/15), 0, Math.PI*2); ctx.fill();
+        }
+        ctx.globalAlpha = 1.0;
+    });
+
+    document.getElementById('gold').innerText = player.gold;
+    document.getElementById('wave').innerText = wave;
+    document.getElementById('timer').innerText = waveTime;
+    document.getElementById('hp-bar').style.width = Math.max(0, player.hp) + "%";
+}
+
+setInterval(() => {
+    if (isPaused || !gameActive) return;
+    waveTime--;
+    if (waveTime <= 0) {
+        wave++; waveTime = 30;
+        if (wave % 5 === 0) {
+            spawnBoss();
+        } else {
+            document.getElementById('msg').innerText = "WAVE " + wave + " START!";
+            document.getElementById('msg').style.display = 'block';
+            setTimeout(() => document.getElementById('msg').style.display = 'none', 2000);
+            if (wave % 2 === 0) openShop();
+        }
+    }
+}, 1000);
+
+function openShop() {
+    isPaused = true;
+    document.getElementById('shop').style.display = 'flex';
+    const itemsDiv = document.getElementById('items');
+    itemsDiv.innerHTML = '';
+    Object.keys(weaponMeta).forEach(k => {
+        const btn = document.createElement('button');
+        btn.className = 'btn';
+        btn.innerHTML = `${weaponMeta[k].name}<br>${weaponMeta[k].price}G`;
+        btn.onclick = () => {
+            if(player.gold >= weaponMeta[k].price) {
+                player.gold -= weaponMeta[k].price;
+                player.weapons[k]++;
+                document.getElementById('gold').innerText = player.gold;
+            } else { alert("골드가 부족합니다!"); }
+        };
+        itemsDiv.appendChild(btn);
+    });
+}
+function closeShop() { isPaused = false; document.getElementById('shop').style.display = 'none'; }
+
+resetGame();
+update();
+</script>
+</body>
+</html>
