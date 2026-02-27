@@ -1,0 +1,198 @@
+<!DOCTYPE html>
+<html lang="ko">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>NEON PULSE</title>
+</head>
+
+<body style="margin:0; background:black; overflow:hidden; font-family:sans-serif; color:white;">
+
+<div id="startScreen" style="position:absolute; width:100%; height:100%; display:flex; flex-direction:column; justify-content:center; align-items:center; background:black;">
+  <h1 style="color:cyan;">NEON PULSE</h1>
+  <h2>난이도 선택</h2>
+  <button onclick="startGame('easy')">EASY</button>
+  <button onclick="startGame('normal')">NORMAL</button>
+  <button onclick="startGame('hard')">HARD</button>
+</div>
+
+<canvas id="game" style="display:none;"></canvas>
+
+<script>
+const canvas = document.getElementById("game");
+const ctx = canvas.getContext("2d");
+
+canvas.width = window.innerWidth;
+canvas.height = window.innerHeight;
+
+let notes=[], combo=0, score=0;
+let maxNotes=6;
+let speed=4;
+let spawnRate=600;
+let gameTime=180;
+let timer;
+let running=false;
+
+const centerX=canvas.width/2;
+const centerY=canvas.height-170;
+const radius=canvas.width/2.2;
+
+class Note{
+  constructor(type){
+    this.angle=Math.random()*Math.PI;
+    this.x=centerX+radius*Math.cos(this.angle);
+    this.y=-40;
+    this.type=type;
+
+    if(type==="long") this.length=100+Math.random()*150;
+
+    if(type==="flick"){
+      const dirs=["up","down","left","right"];
+      this.direction=dirs[Math.floor(Math.random()*4)];
+    }
+  }
+  update(){ this.y+=speed; }
+  draw(){
+    ctx.shadowBlur=25;
+    if(this.type==="tap") ctx.shadowColor=ctx.fillStyle="cyan";
+    if(this.type==="flick") ctx.shadowColor=ctx.fillStyle="hotpink";
+    if(this.type==="long") ctx.shadowColor=ctx.fillStyle="yellow";
+
+    ctx.beginPath();
+    ctx.arc(this.x,this.y,22,0,Math.PI*2);
+    ctx.fill();
+
+    if(this.type==="long"){
+      ctx.beginPath();
+      ctx.moveTo(this.x,this.y);
+      ctx.lineTo(this.x,this.y-this.length);
+      ctx.lineWidth=10;
+      ctx.strokeStyle="yellow";
+      ctx.stroke();
+    }
+    ctx.shadowBlur=0;
+  }
+}
+
+function startGame(diff){
+  document.getElementById("startScreen").style.display="none";
+  canvas.style.display="block";
+
+  if(diff==="easy"){ speed=3; spawnRate=800; }
+  if(diff==="normal"){ speed=4; spawnRate=600; }
+  if(diff==="hard"){ speed=6; spawnRate=400; }
+
+  running=true;
+  setInterval(spawnNote,spawnRate);
+  timer=setInterval(()=>{
+    gameTime--;
+    if(gameTime<=0) endGame();
+  },1000);
+
+  update();
+}
+
+function spawnNote(){
+  if(!running) return;
+  if(notes.length>=maxNotes) return;
+  const types=["tap","flick","long"];
+  notes.push(new Note(types[Math.floor(Math.random()*3)]));
+}
+
+function drawArc(){
+  ctx.beginPath();
+  ctx.arc(centerX,centerY,radius,0,Math.PI);
+  ctx.lineWidth=14;
+  ctx.strokeStyle="magenta";
+  ctx.shadowColor="magenta";
+  ctx.shadowBlur=40;
+  ctx.stroke();
+  ctx.shadowBlur=0;
+}
+
+function checkDistance(음표){
+  let dx=note.x-centerX;
+  let dy=note.y-centerY;
+  let dist=Math.sqrt(dx*dx+dy*dy);
+  return Math.abs(dist-radius);
+}
+
+function judge(diff){
+  if(diff<35) return 1000;
+  if(diff<65) return 700;
+  if(diff<95) return 400;
+  return 0;
+}
+
+function hitNote(direction=null){
+  notes.forEach((note,i)=>{
+    let diff=checkDistance(음표);
+    let point=judge(diff);
+
+    if(note.type==="tap" && point>0){
+      apply(point,i);
+    }
+    if(note.type==="flick" && direction===note.direction && point>0){
+      apply(point,i);
+    }
+  });
+}
+
+function apply(point,index){
+  score+=point;
+  combo++;
+  notes.splice(index,1);
+}
+
+function update(){
+  if(!running) return;
+  ctx.clearRect(0,0,canvas.width,canvas.height);
+  drawArc();
+
+  ctx.fillStyle="white";
+  ctx.font="24px sans-serif";
+  ctx.fillText("COMBO: "+combo,canvas.width-250,60);
+  ctx.fillText("TIME: "+gameTime,40,60);
+  ctx.fillText("SCORE: "+score,40,100);
+
+  notes.forEach((note,i)=>{
+    note.update();
+    note.draw();
+    if(note.y>canvas.height){
+      notes.splice(i,1);
+      combo=0;
+    }
+  });
+
+  requestAnimationFrame(update);
+}
+
+// 모바일 터치
+canvas.addEventListener("touchstart",()=>hitNote());
+canvas.addEventListener("touchend",(e)=>{
+  let dx=e.changedTouches[0].clientX;
+  let dy=e.changedTouches[0].clientY;
+});
+
+// 마우스 클릭
+canvas.addEventListener("mousedown",()=>hitNote());
+
+// 키보드
+document.addEventListener("keydown",(e)=>{
+  if(e.key==="ArrowUp") hitNote("up");
+  if(e.key==="ArrowDown") hitNote("down");
+  if(e.key==="ArrowLeft") hitNote("left");
+  if(e.key==="ArrowRight") hitNote("right");
+  if(e.key==="f"||e.key==="j") hitNote();
+});
+
+function endGame(){
+  running=false;
+  clearInterval(timer);
+  alert("🎮 RESULT\nScore: "+score+"\nCombo: "+combo);
+  location.reload();
+}
+</script>
+
+</body>
+</html>
