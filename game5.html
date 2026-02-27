@@ -1,0 +1,301 @@
+<!DOCTYPE html>
+<html lang="ko">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+    <title>Ultimate Reaction Blitz - Fixed</title>
+    <style>
+        :root {
+            --neon-cyan: #00ffcc;
+            --neon-pink: #ff0077;
+            --neon-yellow: #fff200;
+            --bg-dark: #0a0a0c;
+        }
+
+        body {
+            margin: 0;
+            background-color: var(--bg-dark);
+            color: white;
+            font-family: 'Segoe UI', system-ui, sans-serif;
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            justify-content: center;
+            height: 100vh;
+            overflow: hidden;
+            user-select: none;
+            -webkit-user-select: none;
+            touch-action: none;
+        }
+
+        /* 상단 상태 바 */
+        .info-bar {
+            display: flex;
+            gap: 30px;
+            font-size: 1.2rem;
+            margin-bottom: 15px;
+            text-shadow: 0 0 10px var(--neon-cyan);
+            font-weight: bold;
+            z-index: 10;
+        }
+
+        #mode-badge {
+            font-size: 0.9rem;
+            color: var(--neon-pink);
+            margin-bottom: 5px;
+            letter-spacing: 2px;
+            z-index: 10;
+        }
+
+        /* 게임 보드 */
+        #game-board {
+            position: relative;
+            width: 90vw;
+            max-width: 800px;
+            height: 60vh;
+            background: radial-gradient(circle, #16213e 0%, #0f0f1b 100%);
+            border: 3px solid #333;
+            border-radius: 15px;
+            cursor: crosshair;
+            overflow: hidden;
+        }
+
+        /* 타겟 스타일 */
+        #target {
+            position: absolute;
+            border-radius: 50%;
+            display: none;
+            z-index: 50;
+            pointer-events: auto; /* 터치 가능 확인 */
+        }
+
+        .normal-target {
+            background: var(--neon-cyan);
+            box-shadow: 0 0 20px var(--neon-cyan), 0 0 40px var(--neon-cyan);
+        }
+
+        .hard-target {
+            background: var(--neon-yellow);
+            box-shadow: 0 0 25px var(--neon-yellow), 0 0 50px var(--neon-yellow);
+            border: 2px solid white;
+        }
+
+        /* 오버레이 */
+        .overlay {
+            position: absolute;
+            inset: 0;
+            background: rgba(0, 0, 0, 0.9);
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            justify-content: center;
+            z-index: 100;
+            text-align: center;
+            padding: 20px;
+        }
+
+        .overlay h1 {
+            font-size: 2rem;
+            color: var(--neon-cyan);
+            margin: 0;
+            text-shadow: 0 0 15px var(--neon-cyan);
+        }
+
+        .btn-group {
+            display: flex;
+            flex-direction: column;
+            gap: 15px;
+            width: 100%;
+            max-width: 250px;
+            margin-top: 20px;
+        }
+
+        button {
+            padding: 15px;
+            font-size: 1rem;
+            background: transparent;
+            border-radius: 30px;
+            cursor: pointer;
+            font-weight: bold;
+            transition: 0.2s;
+        }
+
+        .btn-normal { color: var(--neon-cyan); border: 2px solid var(--neon-cyan); }
+        .btn-hard { color: var(--neon-yellow); border: 2px solid var(--neon-yellow); }
+        
+        button:active { transform: scale(0.95); }
+
+        .miss-flash {
+            animation: flash-red 0.3s ease;
+        }
+
+        @keyframes flash-red {
+            50% { background-color: rgba(255, 0, 0, 0.2); }
+        }
+
+        .hidden { display: none !important; }
+    </style>
+</head>
+<body>
+
+    <div id="mode-badge">READY TO BLITZ</div>
+    <div class="info-bar">
+        <div>SCORE: <span id="score-val">0</span></div>
+        <div>TIME: <span id="time-val">30.0</span>s</div>
+    </div>
+
+    <div id="game-board">
+        <div id="target"></div>
+
+        <div id="start-screen" class="overlay">
+            <h1>REACTION BLITZ</h1>
+            <p>타겟을 신속하게 타격하세요!</p>
+            <div class="btn-group">
+                <button class="btn-normal" id="btn-start-normal">NORMAL MODE</button>
+                <button class="btn-hard" id="btn-start-hard">HARD MODE (0.3s)</button>
+            </div>
+        </div>
+
+        <div id="result-screen" class="overlay hidden">
+            <h2 id="rank-display" style="color:var(--neon-pink)">RANK</h2>
+            <p>최종 점수: <b id="final-score" style="font-size: 2rem;">0</b></p>
+            <button class="btn-normal" style="width: 200px;" onclick="location.reload()">RETRY</button>
+        </div>
+    </div>
+
+    <script>
+        // 전역 변수 설정
+        const target = document.getElementById('target');
+        const board = document.getElementById('game-board');
+        const scoreEl = document.getElementById('score-val');
+        const timeEl = document.getElementById('time-val');
+        const badge = document.getElementById('mode-badge');
+        
+        let score = 0;
+        let timeLeft = 30.0;
+        let gameInterval = null;
+        let hardModeInterval = null;
+        let isGameActive = false;
+        let gameMode = 'normal';
+
+        // 게임 시작 함수
+        function initGame(mode) {
+            if (isGameActive) return;
+            
+            gameMode = mode;
+            score = 0;
+            timeLeft = 30.0;
+            isGameActive = true;
+            
+            scoreEl.innerText = score;
+            timeEl.innerText = timeLeft.toFixed(1);
+            badge.innerText = mode.toUpperCase() + " MODE ACTIVE";
+            
+            document.getElementById('start-screen').classList.add('hidden');
+            document.getElementById('result-screen').classList.add('hidden');
+            
+            target.className = mode === 'hard' ? 'hard-target' : 'normal-target';
+            target.style.display = 'block';
+            
+            spawnTarget();
+            
+            // 타이머 인터벌
+            gameInterval = setInterval(() => {
+                timeLeft -= 0.1;
+                if (timeLeft <= 0) {
+                    timeLeft = 0;
+                    endGame();
+                }
+                timeEl.innerText = timeLeft.toFixed(1);
+            }, 100);
+
+            // 하드모드 자동 이동 인터벌 (0.3초)
+            if (gameMode === 'hard') {
+                hardModeInterval = setInterval(() => {
+                    if (isGameActive) spawnTarget();
+                }, 300);
+            }
+        }
+
+        // 타겟 소환 (보드 경계값 버그 수정)
+        function spawnTarget() {
+            const bW = board.getBoundingClientRect().width;
+            const bH = board.getBoundingClientRect().height;
+            const size = Math.max(35, 70 - Math.floor(score / 5) * 5);
+            
+            const maxX = bW - size - 10; // 여백 10px 추가 안전장치
+            const maxY = bH - size - 10;
+            
+            const x = Math.max(10, Math.floor(Math.random() * maxX));
+            const y = Math.max(10, Math.floor(Math.random() * maxY));
+            
+            target.style.width = size + 'px';
+            target.style.height = size + 'px';
+            target.style.left = x + 'px';
+            target.style.top = y + 'px';
+        }
+
+        // 타겟 클릭 성공 시
+        function handleTargetHit(e) {
+            if (!isGameActive) return;
+            if (e) {
+                e.preventDefault();
+                e.stopPropagation();
+            }
+            
+            score++;
+            scoreEl.innerText = score;
+
+            if (gameMode === 'hard') {
+                clearInterval(hardModeInterval);
+                spawnTarget();
+                hardModeInterval = setInterval(() => {
+                    if (isGameActive) spawnTarget();
+                }, 300);
+            } else {
+                spawnTarget();
+            }
+        }
+
+        // 보드 클릭 (감점 페널티)
+        board.addEventListener('mousedown', (e) => {
+            if (!isGameActive || e.target === target) return;
+            applyPenalty();
+        });
+
+        function applyPenalty() {
+            timeLeft = Math.max(0, timeLeft - 1.0);
+            timeEl.innerText = timeLeft.toFixed(1);
+            board.classList.add('miss-flash');
+            setTimeout(() => board.classList.remove('miss-flash'), 200);
+        }
+
+        function endGame() {
+            isGameActive = false;
+            clearInterval(gameInterval);
+            if (hardModeInterval) clearInterval(hardModeInterval);
+            
+            target.style.display = 'none';
+            const resScreen = document.getElementById('result-screen');
+            resScreen.classList.remove('hidden');
+            document.getElementById('final-score').innerText = score;
+            
+            const rankEl = document.getElementById('rank-display');
+            const totalScore = gameMode === 'hard' ? score + 15 : score;
+            if (totalScore >= 50) rankEl.innerText = "RANK: GOD HAND ⚡";
+            else if (totalScore >= 30) rankEl.innerText = "RANK: AGILE HUMAN 🏃";
+            else rankEl.innerText = "RANK: SLOW TURTLE 🐢";
+        }
+
+        // 이벤트 리스너 통합 등록 (버그 방지)
+        window.onload = () => {
+            document.getElementById('btn-start-normal').addEventListener('click', () => initGame('normal'));
+            document.getElementById('btn-start-hard').addEventListener('click', () => initGame('hard'));
+            
+            // 타겟에 마우스/터치 둘 다 대응
+            target.addEventListener('mousedown', handleTargetHit);
+            target.addEventListener('touchstart', handleTargetHit);
+        };
+    </script>
+</body>
+</html>
